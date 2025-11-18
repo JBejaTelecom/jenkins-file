@@ -4,6 +4,9 @@ pipeline {
     environment {
         APP_NAME = "SimpleApp"
         VERSION = "1.0.${env.BUILD_NUMBER}"
+	    REMOTE_USER = "beja"
+        REMOTE_HOST = "${REMOTE_USER}@localhost"
+        REMOTE_DIR = "/home/${REMOTE_USER}/${APP_NAME}"
     }
 
     stages {
@@ -87,6 +90,8 @@ pipeline {
         }
         success {
             echo "Build succeeded."
+			sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'mkdir -p ${REMOTE_DIR}'"
+            sh "scp -o StrictHostKeyChecking=no -r deploy ${REMOTE_HOST}:${REMOTE_DIR}/"
         }
         failure {
             echo "Build failed. Check logs for details."
