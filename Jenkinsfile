@@ -1,125 +1,95 @@
-#!/bin/bash
+pipeline {
+    agent any
 
-# ==========================================
-# System Management Script
-# Beautified and Optimized
-# ==========================================
+    environment {
+        APP_NAME = "SimpleApp"
+        VERSION = "1.0.${env.BUILD_NUMBER}"
+    }
 
-# Function: Environment Setup
-# Sets system limits and configurations
-environment() {
-    local CAT_LIMIT="Increase"
-    echo "Initializing: $CAT_LIMIT"
-    
-    # Note: Ensure you have permissions to edit /etc/security/limits.conf
-    # The original code attempted to append lines here using sed.
-    # Example: sed -i '$a * soft nofile 65535' /etc/security/limits.conf
-}
+    stages {
+        stage('Initialize') {
+            steps {
+                echo "Starting the pipeline for ${APP_NAME} version ${VERSION}"
+                sh 'echo "Preparing workspace..."'
+            }
+        }
 
-# 1. High Performance Scene
-scene_game() {
-    echo "Applying: High Limit Scene (High Performance)..."
-    echo "Setting sysctl parameters..."
-    sysctl -p
-}
+        stage('Build') {
+            steps {
+                echo "Building the application..."
+                sh '''
+                    mkdir -p build
+                    echo "Application: ${APP_NAME}" > build/info.txt
+                    echo "Version: ${VERSION}" >> build/info.txt
+                    echo "Build completed successfully." >> build/info.txt
+                '''
+            }
+        }
 
-# 2. Chat Server Scene
-scene_chat() {
-    echo "Applying: Chat Scene..."
-    echo "Increasing file descriptors..."
-    echo "Optimizing connections..."
-    # ulimit -n 65535 (Example command that might belong here)
-}
-
-# 3. Java Game Scene
-scene_java_game() {
-    echo "Applying: Java Game Scene..."
-    
-    if [ -f "server.properties" ]; then
-        echo "Configuration file found."
-        echo "Optimizing Java arguments..."
-    else
-        echo "Error: 'server.properties' not found!"
-    fi
-}
-
-# 4. Special Game Scene
-scene_special_game() {
-    echo "Applying: Special Game Scene..."
-    echo "Disabling Swap..."
-    swapoff -a
-}
-
-# 5. Clean Up Scene
-scene_clean_game() {
-    echo "Applying: System Cleanup..."
-    echo "Cleaning logs and cache..."
-    # Be careful with rm -rf
-    rm -rf /var/log/*.log
-    echo "Cleanup complete."
-}
-
-# 6. Space/Docker Scene
-scene_space() {
-    echo "Applying: Space Scene (Docker Setup)..."
-    echo "Installing Docker..."
-    apt-get update && apt-get install -y docker.io
-}
-
-# 7. Fix Permissions
-scene_fix_game() {
-    echo "Applying: Permission Fix..."
-    echo "Setting permissions to 777 for /home/game..."
-    chmod -R 777 /home/game
-}
-
-# ==========================================
-# Main Menu Logic
-# ==========================================
-
-show_menu() {
-    clear
-    echo "========================================"
-    echo "      SERVER OPTIMIZATION MANAGER       "
-    echo "========================================"
-    echo "1) Scene: Game (High Performance)"
-    echo "2) Scene: Chat (High Connections)"
-    echo "3) Scene: Java Game (Optimize Args)"
-    echo "4) Scene: Special Game (No Swap)"
-    echo "5) Scene: Clean (Clear Logs)"
-    echo "6) Scene: Space (Install Docker)"
-    echo "7) Scene: Fix (Repair Permissions)"
-    echo "0) Exit"
-    echo "========================================"
-}
-
-main() {
-    while true; do
-        show_menu
-        read -p "Please enter your selection: " num
-
-        case "$num" in
-            1) scene_game ;;
-            2) scene_chat ;;
-            3) scene_java_game ;;
-            4) scene_special_game ;;
-            5) scene_clean_game ;;
-            6) scene_space ;;
-            7) scene_fix_game ;;
-            0) 
-                echo "Exiting..."
-                exit 0 
-                ;;
-            *) 
-                echo "Invalid selection. Please try again." 
-                sleep 1
-                ;;
-        esac
+        stage('Testing Phase') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        echo "Running unit tests..."
+														   
+                        sh '''
+                            if [ -f build/info.txt ]; then
+                                echo "Unit tests passed."
+                            else
+                                echo "Unit tests failed: build file missing!" && exit 1
+                            fi
+                        '''
+                    }
+                }
+                stage('Integration Tests') {
+                    steps {
+                        echo "Running integration tests..."
+                        sh '''
+                            sleep 2
+                            echo "Integration tests passed."
+                        '''
+                    }
+                }
+                stage('Lint & Static Analysis') {
+                    steps {
+                        echo "Running linting and code quality checks..."
+                        sh '''
+                            echo "Code style OK. No lint errors found."
+                        '''
+                    }
+                }
+            }
+        }
         
-        echo ""
-        read -p "Press Enter to continue..."
-    done
-}
+        stage('Deploy') {
+            steps {
+                echo "Deploying version ${VERSION}..."
+                sh '''
+                    mkdir -p deploy
+                    cp build/info.txt deploy/
+                    echo "Deployment complete." >> deploy/info.txt
+                '''
+            }
+        }
 
-# Run the main function
-main
+        stage('Archive Results') {
+            steps {
+                echo "Archiving build artifacts..."
+                archiveArtifacts artifacts: '**/*.txt', fingerprint: true
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Pipeline finished. Cleaning workspace..."
+            deleteDir()
+        }
+        success {
+            echo "Build succeeded."
+        }
+        failure {
+            echo "Build failed. Check logs for details."
+        }
+    }
+}
